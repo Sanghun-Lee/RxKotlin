@@ -5,8 +5,9 @@ import io.reactivex.disposables.CompositeDisposable
 import io.reactivex.rxkotlin.addTo
 import io.reactivex.rxkotlin.subscribeBy
 import io.reactivex.rxkotlin.toObservable
+import io.reactivex.schedulers.Schedulers
 import java.lang.Exception
-import java.lang.IllegalArgumentException
+import io.reactivex.functions.BiFunction
 
 /**
  * https://medium.com/canopas/rx-java-basic-with-simplest-rx-examples-for-beginners-e55d5e54462d
@@ -25,7 +26,7 @@ fun rxExample1() {
     val list: List<String> = listOf("1", "2", "3", "4", "5", "6")
 
     list.toObservable() // list를 Observable로 변환한다.
-        .subscribeBy(       // subscribeBy()와 subscribeBy{ }는 무슨차이가 있을까
+        .subscribeBy(       // TODO subscribeBy()와 subscribeBy{ }는 무슨차이가 있을까
             onNext = { println(it) },
             onError = { it.printStackTrace() },
             onComplete = { println("onComplete") }
@@ -38,6 +39,8 @@ fun rxExample1() {
  * http://reactivex.io/documentation/ko/operators/just.html
  * just operator에 대한 설명.
  */
+
+// TODO subscribeBy와 subscribe함수는 동작에서 어떤 차이가 있을까
 
 fun rxExample2() {
     // just는 최대 10개의 아이템만 넣을 수 있다.
@@ -86,7 +89,8 @@ private fun getObservableFromList(myList: List<String>) =
     }
 
 /**
- * buffer operator ->
+ * buffer operator -> Observable이 발행한 아이템을 버퍼에 모아서 전달해준다.
+ * // TODO 한 번에 buffer count만큼 발행이 되는지, 발행된 아이템을 buffer가 모아서 소비하는지는 좀 더 살펴봐야 한다.
  */
 
 fun rxExample6(bufferCount: Int) {
@@ -97,4 +101,57 @@ fun rxExample6(bufferCount: Int) {
             onError = { println(it.printStackTrace()) },
             onComplete = { println("Done") }
         )
+}
+
+/**
+ * map operator : stream의 map과 동일한 역할을 수행한다. -> 아이템을 하나 받아서 해당 아이템을 연산을 수행한 아이템으로 변경한다.
+ * filter operator : stream의 filter와 동일한 역할을 수행한다. -> filter에 있는 식에 true를 만족하는 아이템만 따로 추려낸다.
+ */
+fun rxExample7() {
+    val observable = Observable.fromArray(1, 2, 3, 4)
+    val transformation = observable.map { e -> e * 2 }
+    transformation.filter { e -> e > 2 }
+        .subscribe(
+            { value -> println("Received : $value") },
+            { error -> println("Error : $error") },
+            { println("Done") }
+
+        ).addTo(compositeDisposable)
+}
+
+/**
+ * subscribeOn(Schedulers) : Observable의 아이템을 얻기 위한 작업을 해당 Schedulers에서 처리한다 (네트워크 호출이나, DB 접근과 같은 행동에 사용)
+ * observeOn(Schedulers) : Observable의 동작이 끝나고 나면, 결과를 observeOn의 Schedulers로 가져와서 사용한다.
+ */
+
+fun rxExample8() {
+    Observable.range(1, 20)     // 1
+        .subscribeOn(Schedulers.io())   // 3
+//        .observeOn(AndroidSchedulers.mainThread())        // 4
+        .filter { e ->      // 2
+            return@filter e % 2 == 0
+        }
+        .subscribe(
+            { value -> println("Received : $value") },
+            { error -> println("Error : $error") },
+            { println("Done") }
+        ).addTo(compositeDisposable)
+}
+
+// zip operator
+fun rxExample9() {
+    val list: List<String> = listOf("1", "2", "3", "4", "5", "6", "7")
+    val numObservable = list.toObservable()
+    val charObservable = Observable.just("A", "B", "C", "D", "E", "F", "G", "H")
+    val zipper = BiFunction<String, String, String> { t1, t2 ->
+        "$t1-$t2"
+    }
+
+    Observable.zip(numObservable, charObservable, zipper)
+        .subscribeOn(Schedulers.io())
+        .subscribe(
+            { value -> println("Received : $value") },
+            { error -> println("Error : $error") },
+            { println("Done") }
+        ).addTo(compositeDisposable)
 }
